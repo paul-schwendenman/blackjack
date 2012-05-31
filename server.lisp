@@ -157,10 +157,9 @@
 
 (defun dealer-play ()
 	(if (< (card-sum (player-cards dealer)) 17)
-		(add-card dealer (draw-card))
-		(player-cards dealer)))
-;	(dealer-play))
-
+	(add-card dealer (draw-card))
+	(player-cards dealer)))
+      
 ; * * * * * * * * * * * * * * * * * * * * *
 ; * Functions the player can run	  *
 ; * * * * * * * * * * * * * * * * * * * * *
@@ -207,6 +206,12 @@
 		(format one-stream "Welcome~A!" (player-name player))
 		(format t "~A has joined~%" (player-name player))
 		
+		; Load Dealer State
+		(setf dealer-info (load-player 'dealer))
+		(if (null dealer-info) (progn (setf dealer-info (make-player-state))
+			(setf (player-state-wins dealer-info) 0)
+			(setf (player-state-games-played dealer-info) 0)))
+			
 		; Load Player State
 		(setf player-info (load-player player-name))
 		(if (null player-info) (progn (setf player-info (make-player-state))
@@ -249,7 +254,7 @@
 		(if (not (eq (car input) 'close))
 		(progn
 		; Handle Dealer
-		(if (> 22 (card-sum (player-cards player)))
+		(if (and (> 17 (card-sum (player-cards dealer))) (> 22 (card-sum (player-cards player))))
 			(dealer-play) (print 'BUST))
 
 		(print (list player dealer) string-stream)
@@ -260,20 +265,29 @@
 		(if (and (or (> dealer-score 21) (> player-score dealer-score)) (< player-score 22))
 			(progn (print (list 'Winner player-score 'to dealer-score) string-stream)
 				(setf (player-state-wins player-info) (+ 1 (player-state-wins player-info)))
-				(setf (player-state-games-played player-info) (+ 1 (player-state-games-played player-info))))
+				(setf (player-state-games-played player-info) (+ 1 (player-state-games-played player-info)))
+				(setf (player-state-games-played dealer-info) (+ 1 (player-state-games-played dealer-info))))
 			(progn (print (list 'Loser player-score 'to dealer-score) string-stream)
-				(setf (player-state-games-played player-info) (+ 1 (player-state-games-played player-info)))))
+				(setf (player-state-wins dealer-info) (+ 1 (player-state-wins dealer-info)))
+				(setf (player-state-games-played player-info) (+ 1 (player-state-games-played player-info)))
+				(setf (player-state-games-played dealer-info) (+ 1 (player-state-games-played dealer-info)))))
+                                                                                                                                                                                                                                                
 		(print player-info string-stream)
 		
 		; Send Result
 		(print (get-output-stream-string string-stream) one-stream)
 		
 		; Save Player State
-		(save-player (player-name player) player-info)))
+		(save-player (player-name player) player-info)
+
+		; Save Dealer State
+		(save-player 'dealer dealer-info)))
+
 		; Close Connection
 		(close one-stream)
 		
-		(format t "~A Done ~%" (player-name player)))
+		(format t "~A Done ~%" (player-name player))
+		(format t "The dealer is ~A~%" (load-player 'dealer)))
 	
 	; Close Socket
 	(socket-server-close game-socket))
