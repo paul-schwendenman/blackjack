@@ -230,32 +230,36 @@
         (print-dealer dealer string-stream)
 		(print (get-output-stream-string string-stream) one-stream)
 		
-		; Get Bet <------ Maybe
-		; (setf input (read one-stream))
-		
+                ; Get Bet <------ Maybe                                                                                                                                                      
+                ; (setf input (read one-stream))                                                                                                                                             
+                
+		(loop
 			; Hit or stay?
 			(setf input (read one-stream))
 			(if (eq (car input) 'quit) (return))
 			(if (not (eq (car input) 'close))
-			(progn
-			; Eval 
-			(sandboxed-eval input)
-			;(print (read) one-stream)
-		
-		
-			; Print New Cards
-			(print player string-stream)
-			(print (get-output-stream-string string-stream) one-stream)
-		
-			; Save last-command
-			(if (not (eq (car input) 'again))
-				(setf last-command input))))
+				(progn
+					; Eval 
+					(sandboxed-eval input)
+					;(print (read) one-stream)              
+					
+					; Print New Cards
+					(if (or (> (card-sum (player-cards player)) 21) (eq (car input) 'stay))
+						(progn (print 'done one-stream) (return))
+						(progn (print player string-stream)
+						(print (get-output-stream-string string-stream) one-stream))))))
+                                                                                   
+                        (if (eq (car input) 'quit) (return))
+                        
+                        ; Save last-command
+                        ;(if (not (eq (car input) 'again))
+                        ;       (setf last-command input))))
 		
 		(if (not (eq (car input) 'close))
 		(progn
 		; Handle Dealer
 		(if (and (> 17 (card-sum (player-cards dealer))) (> 22 (card-sum (player-cards player))))
-			(dealer-play) (print 'BUST))
+			(dealer-play))
 
 		(print (list player dealer) string-stream)
 		

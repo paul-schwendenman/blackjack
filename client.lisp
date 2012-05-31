@@ -46,13 +46,17 @@
 		(format t "~A~%" (read server))
 		
 		; Get Command
-		(setf command (read1))
-		(print command server)
-		(if (eq (car command) 'quit) (return))
-		(if (eq (car command) 'close) (return))
+		(loop
+			(setf command (read1))
+			(print command server)
+			(if (eq (car command) 'quit) (return))
+			(if (eq (car command) 'close) (return))
 		
-		; Get Response
-		(format t "~A~%" (read server))
+			; Get Response
+			(setf response (read server))
+			(if (not (eq response 'done))
+			(format t "~A~%" response)
+			(return)))
 
 		; Get Result		
 		(format t "~A~%" (read server))
