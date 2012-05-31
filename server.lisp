@@ -195,6 +195,8 @@
 		(defparameter one-stream (socket-accept game-socket))
 		(defparameter string-stream (make-string-output-stream))
 				
+        ; seed the random number generator
+        (defparameter *random-state* (make-random-state t))
 		; Make deck and Shuffle
 		(setf deck (shuffle (shuffle (create-shoe))))
 		
