@@ -159,9 +159,9 @@
 ; * * * * * * * * * * * * * * * * * * * * *
 
 (defun dealer-play ()
-	(if (< (card-sum (player-cards dealer)) 17)
 	(add-card dealer (draw-card))
-	(player-cards dealer)))
+	(if (< (card-sum (player-cards dealer)) 17)
+	(dealer-play)))
       
 ; * * * * * * * * * * * * * * * * * * * * *
 ; * Functions the player can run	  *
@@ -239,8 +239,7 @@
 		(loop
 			; Hit or stay?
 			(setf input (read one-stream))
-			(if (eq (car input) 'quit) (return))
-			(if (eq (car input) 'close) (return))
+			(if (or (> (length (player-cards player)) 4) (eq (car input) 'close) (eq (car input) 'ragequit)) (return))
 
                         ; Eval 
                         (sandboxed-eval input)
@@ -252,7 +251,7 @@
                                 (progn (print player string-stream)
                                 (print (get-output-stream-string string-stream) one-stream))))
                                                                                    
-		(if (eq (car input) 'quit) (return))
+		(if (eq (car input) 'ragequit) (return))
                         
                         ; Save last-command
                         ;(if (not (eq (car input) 'again))
@@ -269,7 +268,7 @@
 		; Winner
 		(setf dealer-score (card-sum (player-cards dealer)))
 		(setf player-score (card-sum (player-cards player)))
-		(if (and (or (> dealer-score 21) (> player-score dealer-score)) (< player-score 22))
+		(if (and (or (> dealer-score 21) (> player-score dealer-score) (> (length (player-cards player)) 4)) (< player-score 22))
 			(progn (print (list 'Winner player-score 'to dealer-score) string-stream)
 				(setf (player-state-wins player-info) (+ 1 (player-state-wins player-info)))
 				(setf (player-state-games-played player-info) (+ 1 (player-state-games-played player-info)))
@@ -278,7 +277,7 @@
 				(setf (player-state-wins dealer-info) (+ 1 (player-state-wins dealer-info)))
 				(setf (player-state-games-played player-info) (+ 1 (player-state-games-played player-info)))
 				(setf (player-state-games-played dealer-info) (+ 1 (player-state-games-played dealer-info)))))
-                                                                                                                                                                                                                                                
+                (if (> (length (player-cards player)) 4) (print "Five Card Charlie" string-stream))
 		(print player-info string-stream)
 		
 		; Send Result

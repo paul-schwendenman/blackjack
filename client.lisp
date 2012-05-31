@@ -49,7 +49,7 @@
 		(loop
 			(setf command (read1))
 			(print command server)
-			(if (eq (car command) 'quit) (return))
+			(if (eq (car command) 'ragequit) (return))
 			(if (eq (car command) 'close) (return))
 		
 			; Get Response
