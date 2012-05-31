@@ -2,6 +2,7 @@
 ; * Card Structure			  *
 ; * * * * * * * * * * * * * * * * * * * * *
 
+; p is the card defstruct here
 (defun print-card (p stream depth)
 	(format stream "~A of ~A," (cdr (assoc (card-rank p) rank)) (cdr (assoc (card-suit p) suit))))
 
@@ -32,6 +33,10 @@
 
 (defun print-player (p stream depth)
 	(format stream "~A: ~A" (player-name p) (player-cards p)))
+
+; prints all but the dealer's first card
+(defun print-dealer (dealer stream)
+    (format stream "Dealer: *** of ***, ~A" (cdr (player-cards dealer))))
 
 (defstruct (player (:print-function print-player))
 	name
@@ -213,7 +218,9 @@
 		(add-card player (draw-card))
 		(add-card dealer (draw-card))
 
-		(print (list player dealer) string-stream)
+		(print player string-stream)
+        (format string-stream "~%")     ; prints a new line
+        (print-dealer dealer string-stream)
 		(print (get-output-stream-string string-stream) one-stream)
 		
 		; Get Bet <------ Maybe
