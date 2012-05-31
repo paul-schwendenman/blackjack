@@ -58,6 +58,9 @@
 			(format t "~A~%" response)
 			(return)))
 
+		(if (eq (car command) 'quit) (return))
+		(if (eq (car command) 'close) (return))
+
 		; Get Result		
 		(format t "~A~%" (read server))
 		

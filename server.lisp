@@ -124,31 +124,34 @@
 
 ; Don't want the user to be able to run anything they want on the server.
 
-(setf known-commands '(hit stay again))
-(setf known-variables '(nil))
-
-(defun sandboxed-eval (cmd)
-	(if (sandbox-check cmd)
-		(eval cmd)
-		(format t "I do not know that command")))
-
-(defun sandbox-check (cmd)
-	(if (null cmd)
-	nil
-	(or (member (car cmd) known-commands)
-		(and (eq 'if (first cmd)) (sandbox-check-cond (second cmd)
-		(sandbox-check (third cmd)) (sandbox-check (fourth cmd)))))))
-		
-(defun sandbox-check-cond (cond)
-	(and (member (first cond) '(> < = eq eql and or))
-		(or (member (second cond) known-variables) (numberp (second cond)) (sandbox-check-cond (second cond)))
-		(or (member (third cond) known-variables) (numberp (third cond)) (sandbox-check-cond (third cond)))))
+; With ifs
+;(setf known-commands '(hit stay again))
+;(setf known-variables '(nil))
+;
+;(defun sandboxed-eval (cmd)
+;	(if (sandbox-check cmd)
+;		(eval cmd)
+;		(format t "I do not know that command")))
+;
+;(defun sandbox-check (cmd)
+;	(if (null cmd)
+;	nil
+;	(or (member (car cmd) known-commands)
+;		(and (eq 'if (first cmd)) (sandbox-check-cond (second cmd)
+;		(sandbox-check (third cmd)) (sandbox-check (fourth cmd)))))))
+;		
+;(defun sandbox-check-cond (cond)
+;	(and (member (first cond) '(> < = eq eql and or))
+;		(or (member (second cond) known-variables) (numberp (second cond)) (sandbox-check-cond (second cond)))
+;		(or (member (third cond) known-variables) (numberp (third cond)) (sandbox-check-cond (third cond)))))
 
 ;; With out if's
-;(defun sandboxed-eval (cmd)
-;	(if (member (car cmd) known-commands)
-;		(eval cmd)
-;		'(I do not know that command)))
+(setf known-commands '(hit stay))
+
+(defun sandboxed-eval (cmd)
+	(if (member (car cmd) known-commands)
+		(eval cmd)
+		'(I do not know that command)))
 
 
 ; * * * * * * * * * * * * * * * * * * * * *
@@ -237,19 +240,19 @@
 			; Hit or stay?
 			(setf input (read one-stream))
 			(if (eq (car input) 'quit) (return))
-			(if (not (eq (car input) 'close))
-				(progn
-					; Eval 
-					(sandboxed-eval input)
-					;(print (read) one-stream)              
-					
-					; Print New Cards
-					(if (or (> (card-sum (player-cards player)) 21) (eq (car input) 'stay))
-						(progn (print 'done one-stream) (return))
-						(progn (print player string-stream)
-						(print (get-output-stream-string string-stream) one-stream))))))
+			(if (eq (car input) 'close) (return))
+
+                        ; Eval 
+                        (sandboxed-eval input)
+                        ;(print (read) one-stream)              
+                        
+                        ; Print New Cards
+                        (if (or (> (card-sum (player-cards player)) 21) (eq (car input) 'stay))
+                                (progn (print 'done one-stream) (return))
+                                (progn (print player string-stream)
+                                (print (get-output-stream-string string-stream) one-stream))))
                                                                                    
-                        (if (eq (car input) 'quit) (return))
+		(if (eq (car input) 'quit) (return))
                         
                         ; Save last-command
                         ;(if (not (eq (car input) 'again))
