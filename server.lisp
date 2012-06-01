@@ -1,4 +1,11 @@
 ; * * * * * * * * * * * * * * * * * * * * *
+; * Settings for quitting and closing	  *
+; * * * * * * * * * * * * * * * * * * * * *
+
+(setf close 'close)
+(setf quit 'quit)
+
+; * * * * * * * * * * * * * * * * * * * * *
 ; * Card Structure			  *
 ; * * * * * * * * * * * * * * * * * * * * *
 
@@ -40,16 +47,22 @@
 
 (defstruct (player (:print-function print-player))
   name
-  cards)
+  socket-stream
+  cards
+  player-info
+  string-stream)
   
-(defun new-player (name)
-  (make-player :name name :cards ()))
+(defun new-player (name ss)
+  (make-player :name name :cards () :socket-stream ss))
   
 (defun add-card (player card)
   (if (null card)
   nil
   (setf (player-cards player) (cons card (player-cards player)))))
   
+(player-send (player)
+  (print (get-output-stream-string (player-string-stream player)) (player-socket-stream player)))
+
 
 ; * * * * * * * * * * * * * * * * * * * * *
 ; * Hash Table				  *
@@ -59,10 +72,10 @@
   (format stream "~A of ~A games played."  (player-state-wins p) (player-state-games-played p)))
 
 (defstruct (player-state (:print-function print-player-state))
-  wins
-  games-played
+  (wins 0)
+  (games-played 0)
   password
-  bank)
+  (bank 100))
   
 (defun load-player (name)
   (gethash name hash-table))
@@ -185,87 +198,131 @@
 ; * * * * * * * * * * * * * * * * * * * * *
 
 
+  
+(defun get-clients ()
+  (if (socket-wait game-socket 0 500)
+      (cons (socket-accept game-socket :timeout '(0 500)) (get-clients))
+      nil))
+
+(defun close-clients (lst-clients)
+  (if (null lst-clients)
+      nil
+      (progn (close (car lst-clients))
+        ;(format t "~A Done ~%" (player-name ))
+        (close-clients (cdr lst-clients)))))
+
+(defun get-client-names (lst-clients)
+      (mapcar #'(lambda (one-stream) 
+        (let* ((player-name (read one-stream))(player (new-player player-name one-stream)))
+          (format one-stream "Welcome~A!" (player-name player))
+          (format t "~A has joined~%" (player-name player))
+          player)) lst-clients))
+
+(defun deal (lst-clients)
+  (if (null lst-clients)
+      nil
+      (progn (add-card (car lst-clients) (draw-card))
+        (deal (cdr lst-clients)))))
+
+        
+;  (defparameter game-socket (socket-server 4321))
+;  (socket-server-close game-socket)
+;  (defparameter server (socket-connect 4321 "127.0.0.1"))
+
+;(defun get-clients ()
+;  (setf clients '())
+;  (loop
+;    (setf user (handler-case (socket-accept game-socket :timeout '(0 500)) (error (se) 'nothin)))
+;    (cons clients user)
+;    (if (null user) (return clients))))
+;
 (progn
-  ; Open Socket
+  ; Make hash-table for memory of players
   (setf hash-table (make-hash-table))
+
+  ; Seed the random number generator
+  (defparameter *random-state* (make-random-state t))
+
+  ; Open Socket
   (defparameter game-socket (socket-server 4321))
 
-  (loop
+  ; Make dealer
+  (setf dealer (new-player "Dealer"))
 
-    ; Accept Connection
-    (format t "Waiting for player...")
-    (defparameter one-stream (socket-accept game-socket))
-    (defparameter string-stream (make-string-output-stream))
-        
-    ; seed the random number generator
-    (defparameter *random-state* (make-random-state t))
-    
-    ; Make deck and Shuffle
-    (setf deck (shuffle (shuffle (create-shoe))))
-    
-    ; Make dealer
-    (setf dealer (new-player "Dealer"))
-
-    ; Get Name and make player
-    (setf player-name (read one-stream))
-    (setf player (new-player player-name))
-    (format one-stream "Welcome~A!" (player-name player))
-    (format t "~A has joined~%" (player-name player))
-    
-    ; Load Dealer State
-    (setf dealer-info (load-player 'dealer))
-    (if (null dealer-info) (progn (setf dealer-info (make-player-state))
-      (setf (player-state-wins dealer-info) 0)
-      (setf (player-state-games-played dealer-info) 0)))
+  ; Load Dealer State
+  (setf dealer-info (load-player 'dealer))
       
-    ; Load Player State
-    (setf player-info (load-player player-name))
-    (if (null player-info) (progn (setf player-info (make-player-state))
-      (setf (player-state-wins player-info) 0)
-      (setf (player-state-games-played player-info) 0)))
-      
-    
-    ; Deal Two Cards
-    (add-card player (draw-card))
-    (add-card dealer (draw-card))
-    (add-card player (draw-card))
-    (add-card dealer (draw-card))
+  ; Make deck and Shuffle
+  (setf deck (shuffle (shuffle (create-shoe))))
 
+  ; Accept Connection
+  (format t "Waiting for player...")
+  (setf clients (let ((client-connections (cons (socket-accept game-socket) (get-client))))
+  
+  ; Get Name and make player
+  (get-client-names client-connections)))
+  
+  ; Deal Two Cards
+  (deal clients)
+  (add-card dealer (draw-card))
+  (deal clients)
+  (add-card dealer (draw-card))
+
+
+(one-hand)
+
+      (if (and (> 17 (card-sum (player-cards dealer))) (> 22 (card-sum (player-cards player))))
+        (dealer-play))
+
+(handle-game-end
+
+    ; Save Dealer State
+    (save-player 'dealer dealer-info)))
+
+    ; Close Connection
+    (close one-stream)
+    
+    (format t "~A Done ~%" (player-name player))
+    (format t "The dealer is ~A~%" (load-player 'dealer)))
+  
+  ; Close Socket
+  (socket-server-close game-socket))
+
+(defun one-hand (player)
+  (let* ((player-info (load-player (player-name player)))			; Load Player State
+        (string-stream (make-string-output-stream))   				; Start String Stream for smarter printing
+        (one-stream (player-socket-stream player)))
+
+    ; Print Cards to player
     (print player string-stream)
-        (format string-stream "~%")     ; prints a new line
-        (print-dealer dealer string-stream)
+    (format string-stream "~%")     						; prints a new line
+    (print-dealer dealer string-stream)
     (print (get-output-stream-string string-stream) one-stream)
     
-                ; Get Bet <------ Maybe                                                                                                                                                      
-                ; (setf input (read one-stream))                                                                                                                                             
+    ; Get Bet <------ Maybe                                                                                                                                                      
+    ; (setf input (read one-stream))                                                                                                                                             
                 
     (loop
       ; Hit or stay?
       (setf input (read one-stream))
-      (if (or (> (length (player-cards player)) 4) (eq (car input) 'close) (eq (car input) 'ragequit)) (return))
-
-                        ; Eval 
-                        (sandboxed-eval input)
-                        ;(print (read) one-stream)              
+      (if (or (> (length (player-cards player)) 4) (eq (car input) close) (eq (car input) quit)) (return))
+        ; Eval 
+        (sandboxed-eval input)
                         
-                        ; Print New Cards
-                        (if (or (> (card-sum (player-cards player)) 21) (eq (car input) 'stay))
-                                (progn (print 'done one-stream) (return))
-                                (progn (print player string-stream)
-                                (print (get-output-stream-string string-stream) one-stream))))
+        ; Print New Cards
+        (if (or (> (card-sum (player-cards player)) 21) (eq (car input) 'stay))
+          (progn (print 'done one-stream) (return))
+          (progn (print player string-stream)
+            (print (get-output-stream-string string-stream) one-stream))))))
                                                                                    
-    (if (eq (car input) 'ragequit) (return))
-                        
-                        ; Save last-command
-                        ;(if (not (eq (car input) 'again))
-                        ;       (setf last-command input))))
-    
-    (if (not (eq (car input) 'close))
-    (progn
-    ; Handle Dealer
-    (if (and (> 17 (card-sum (player-cards dealer))) (> 22 (card-sum (player-cards player))))
-      (dealer-play))
+      ; Handle Dealer
 
+
+(defun handle-game-end (player)
+  (let* ((player-info (load-player (player-name player)))
+        (string-stream (make-string-output-stream))
+        (one-stream (player-socket-stream player)))
+  
     (print (list player dealer) string-stream)
     
     ; Winner
@@ -280,57 +337,13 @@
         (setf (player-state-wins dealer-info) (+ 1 (player-state-wins dealer-info)))
         (setf (player-state-games-played player-info) (+ 1 (player-state-games-played player-info)))
         (setf (player-state-games-played dealer-info) (+ 1 (player-state-games-played dealer-info)))))
-                (if (> (length (player-cards player)) 4) (print "Five Card Charlie" string-stream))
-    (print player-info string-stream)
+
+    ; Five Card Charlie
+    (if (> (length (player-cards player)) 4) (print "Five Card Charlie" string-stream))
+      (print player-info string-stream)
     
     ; Send Result
     (print (get-output-stream-string string-stream) one-stream)
     
     ; Save Player State
-    (save-player (player-name player) player-info)
-
-    ; Save Dealer State
-    (save-player 'dealer dealer-info)))
-
-    ; Close Connection
-    (close one-stream)
-    
-    (format t "~A Done ~%" (player-name player))
-    (format t "The dealer is ~A~%" (load-player 'dealer)))
-  
-  ; Close Socket
-  (socket-server-close game-socket))
-  
-(defun get-clients ()
-  (if (socket-wait game-socket 0 500)
-      (cons (socket-accept game-socket :timeout '(0 500)) (get-clients))
-      nil))
-
-(defun close-clients (lst-clients)
-  (if (null lst-clients)
-      nil
-      (progn (close (car lst-clients))
-        (close-clients (cdr lst-clients)))))
-
-(defun get-client-names (lst-clients)
-      (mapcar #'(lambda (one-stream) 
-        (let* ((player-name (read one-stream))(player (new-player player-name)))
-          (format one-stream "Welcome~A!" (player-name player))
-          (format t "~A has joined~%" (player-name player))
-        
-        )) lst-clients)
-  
-        
-;(mapcar #'(lambda (x) (- 1 x)) '(1 2 3 4)) 
-
-;  (defparameter game-socket (socket-server 4321))
-;  (socket-server-close game-socket)
-;  (defparameter server (socket-connect 4321 "127.0.0.1"))
-
-;(defun get-clients ()
-;  (setf clients '())
-;  (loop
-;    (setf user (handler-case (socket-accept game-socket :timeout '(0 500)) (error (se) 'nothin)))
-;    (cons clients user)
-;    (if (null user) (return clients))))
-;
+    (save-player (player-name player) player-info)))
