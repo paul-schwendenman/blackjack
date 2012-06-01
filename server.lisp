@@ -197,15 +197,18 @@
     (defparameter one-stream (socket-accept game-socket))
     (defparameter string-stream (make-string-output-stream))
         
-        ; seed the random number generator
-        (defparameter *random-state* (make-random-state t))
+    ; seed the random number generator
+    (defparameter *random-state* (make-random-state t))
+    
     ; Make deck and Shuffle
     (setf deck (shuffle (shuffle (create-shoe))))
     
+    ; Make dealer
+    (setf dealer (new-player "Dealer"))
+
     ; Get Name and make player
     (setf player-name (read one-stream))
     (setf player (new-player player-name))
-    (setf dealer (new-player "Dealer"))
     (format one-stream "Welcome~A!" (player-name player))
     (format t "~A has joined~%" (player-name player))
     
@@ -299,9 +302,26 @@
   (socket-server-close game-socket))
   
 (defun get-clients ()
-    (if (socket-wait game-socket 0 500)
+  (if (socket-wait game-socket 0 500)
       (cons (socket-accept game-socket :timeout '(0 500)) (get-clients))
       nil))
+
+(defun close-clients (lst-clients)
+  (if (null lst-clients)
+      nil
+      (progn (close (car lst-clients))
+        (close-clients (cdr lst-clients)))))
+
+(defun get-client-names (lst-clients)
+      (mapcar #'(lambda (one-stream) 
+        (let* ((player-name (read one-stream))(player (new-player player-name)))
+          (format one-stream "Welcome~A!" (player-name player))
+          (format t "~A has joined~%" (player-name player))
+        
+        )) lst-clients)
+  
+        
+;(mapcar #'(lambda (x) (- 1 x)) '(1 2 3 4)) 
 
 ;  (defparameter game-socket (socket-server 4321))
 ;  (socket-server-close game-socket)

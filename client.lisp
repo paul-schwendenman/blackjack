@@ -13,7 +13,7 @@
     
     ;Send Name
     (print name server)
-    (format t "Connected~%")
+    (format t "Connected... Waiting for new game~%")
     (format t "~A~%" (read server))
     
     ; Print Cards
@@ -29,8 +29,8 @@
       ; Get Response
       (setf response (read server))
       (if (not (eq response 'done))
-      (format t "~A~%" response)
-      (return)))
+          (format t "~A~%" response)
+          (return)))
 
     (if (eq (car command) 'quit) (return))
     (if (eq (car command) 'close) (return))
