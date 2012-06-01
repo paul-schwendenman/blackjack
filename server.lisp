@@ -298,3 +298,19 @@
   ; Close Socket
   (socket-server-close game-socket))
   
+(defun get-clients ()
+    (if (socket-wait game-socket 0 500)
+      (cons (socket-accept game-socket :timeout '(0 500)) (get-clients))
+      nil))
+
+;  (defparameter game-socket (socket-server 4321))
+;  (socket-server-close game-socket)
+;  (defparameter server (socket-connect 4321 "127.0.0.1"))
+
+;(defun get-clients ()
+;  (setf clients '())
+;  (loop
+;    (setf user (handler-case (socket-accept game-socket :timeout '(0 500)) (error (se) 'nothin)))
+;    (cons clients user)
+;    (if (null user) (return clients))))
+;
